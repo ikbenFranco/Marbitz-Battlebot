@@ -1,7 +1,4 @@
-// Instructions: Simplify f-string formatting in logger calls within challenge_response_callback to prevent potential SyntaxError.
-
-\
-// ... existing code ... <challenge_data = active_challenges[challenge_id]>
+# ... existing code ... <challenge_data = active_challenges[challenge_id]>
     # challenged_user_username is the one stored from the initial /challenge @<username> command
     challenged_user_stored_username = challenge_data['challenged_user']
     # challenger_user = challenge_data['challenger_user'] # This was not in the previous code structure here
@@ -17,15 +14,12 @@
 
     if not can_respond:
         clicker_display_name = user_clicking_callback.username or user_clicking_callback.first_name
-        clicked_by_log_username = user_clicking_callback.username if user_clicking_callback.username else "[No Username]"
+        clicked_by_username = user_clicking_callback.username if user_clicking_callback.username else "[No Username]"
+        user_id = user_clicking_callback.id
 
-        warning_log_message = (
-            f"Unauthorized attempt to respond to challenge. "
-            f"Challenge ID: {challenge_id}. "
-            f"Expected: @{challenged_user_stored_username}. "
-            f"Clicked by: @{clicked_by_log_username} (ID: {user_clicking_callback.id})."
+        logger.warning(
+            f"Unauthorized attempt to respond to challenge. Challenge ID: {challenge_id}. Expected: @{challenged_user_stored_username}. Clicked by: @{clicked_by_username} (ID: {user_id})."
         )
-        logger.warning(warning_log_message)
 
         await context.bot.send_message(
             chat_id=query.message.chat_id,
@@ -35,13 +29,11 @@
         return CHALLENGE_CONFIRMATION # Stay in the same state
 
     # User is authorized to respond
-    responding_user_log_name = user_clicking_callback.username if user_clicking_callback.username else user_clicking_callback.first_name
-    info_log_message = (
-        f"User @{responding_user_log_name} (ID: {user_clicking_callback.id}) "
-        f"is responding to challenge ID {challenge_id} "
-        f"for @{challenged_user_stored_username}."
+    responding_user_name = user_clicking_callback.username or user_clicking_callback.first_name
+    user_id = user_clicking_callback.id
+    logger.info(
+        f"User @{responding_user_name} (ID: {user_id}) is responding to challenge ID {challenge_id} for @{challenged_user_stored_username}."
     )
-    logger.info(info_log_message)
 
     if action == 'accept':
         # Ensure the person clicking is the one who was challenged
