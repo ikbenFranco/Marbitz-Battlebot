@@ -322,42 +322,59 @@ async def challenge_response_callback(update: Update, context: ContextTypes.DEFA
     """Handle challenge acceptance/decline."""
     query = update.callback_query
     await query.answer()
-    
+
+    logger.info(f"Challenge_response_callback: Received callback_query with data: '{query.data}'")
+
     action, challenge_id = query.data.split("_", 1)
-    
+    logger.info(f"Challenge_response_callback: Action: '{action}', Extracted Challenge ID: '{challenge_id}'")
+
     if challenge_id not in active_challenges:
-        await query.edit_message_text("This challenge is no longer active or has expired.")
-        if context.user_data and context.user_data.get('challenger_id') == query.from_user.id:
-            context.user_data.clear()
+        logger.warning(f"Challenge_response_callback: Challenge ID '{challenge_id}' not found in active_challenges. Current active_challenges keys: {list(active_challenges.keys())}")
+        try:
+            await query.edit_message_text("This challenge is no longer active or has expired.")
+        except Exception as e:
+            logger.error(f"Challenge_response_callback: Error editing message for expired challenge: {e}")
         return ConversationHandler.END
     
     challenge_data = active_challenges[challenge_id]
-    challenged_user_stored_username = challenge_data['challenged_user']
-    
+    challenged_user_stored_username = challenge_data['challenged_user'] # Username string as typed in /challenge
+
     user_clicking_callback = query.from_user
-    
+    clicker_actual_username = user_clicking_callback.username # This can be None
+    clicker_id = user_clicking_callback.id
+    clicker_display_name = user_clicking_callback.username or user_clicking_callback.first_name
+
+    logger.info(f"Challenge_response_callback: Clicker details - Username: @{clicker_actual_username}, DisplayName: @{clicker_display_name}, ID: {clicker_id}. Expected challenged username: @{challenged_user_stored_username}")
+
     can_respond = False
-    # Primary check: Compare the username of the clicker (if they have one)
-    # with the stored challenged username (case-insensitive).
-    if user_clicking_callback.username:
-        if user_clicking_callback.username.lower() == challenged_user_stored_username.lower():
+    if clicker_actual_username: # Only if the clicker HAS a Telegram username
+        if clicker_actual_username.lower() == challenged_user_stored_username.lower():
             can_respond = True
+            logger.info(f"Challenge_response_callback: Username match successful for @{clicker_actual_username} against stored @{challenged_user_stored_username}.")
+        else:
+            logger.warning(f"Challenge_response_callback: Username mismatch. Clicker: @{clicker_actual_username} (lower: {clicker_actual_username.lower()}), Expected stored: @{challenged_user_stored_username} (lower: {challenged_user_stored_username.lower()})")
+    else:
+        logger.warning(f"Challenge_response_callback: User @{clicker_display_name} (ID: {clicker_id}) who clicked the button has NO Telegram username set. Cannot verify against stored challenged username @{challenged_user_stored_username}.")
     
     if not can_respond:
-        clicker_display_name = user_clicking_callback.username or user_clicking_callback.first_name
-        clicked_by_username = user_clicking_callback.username if user_clicking_callback.username else "[No Username]"
-        user_id = user_clicking_callback.id
-        
+        # This log was already quite good.
         logger.warning(
-            f"Unauthorized attempt to respond to challenge. Challenge ID: {challenge_id}. Expected: @{challenged_user_stored_username}. Clicked by: @{clicked_by_username} (ID: {user_id})."
+            f"Challenge_response_callback: Unauthorized attempt to respond to challenge. Challenge ID: {challenge_id}. Expected stored: @{challenged_user_stored_username}. Clicked by: @{clicker_actual_username if clicker_actual_username else '[No Username]'} (ID: {clicker_id})."
         )
-        
-        await context.bot.send_message(
-            chat_id=query.message.chat_id,
-            text=f"😕 Sorry @{clicker_display_name}, only @{challenged_user_stored_username} (the one who was challenged) can accept or decline this battle.",
-            reply_to_message_id=query.message.message_id
-        )
-        return CHALLENGE_CONFIRMATION # Stay in the same state
+
+        try:
+            # Send a new message instead of editing, as editing might fail silently or be less noticeable.
+            await context.bot.send_message(
+                chat_id=query.message.chat_id,
+                text=f"😕 Sorry @{clicker_display_name}, only @{challenged_user_stored_username} (the one who was challenged) can accept or decline this battle."
+            )
+        except Exception as e:
+            logger.error(f"Challenge_response_callback: Error sending 'unauthorized' message: {e}")
+
+        # We might not want to return to CHALLENGE_CONFIRMATION if the issue is systemic and not a one-off misclick.
+        # Forcing the conversation to end might be cleaner if the user truly can't be verified.
+        # However, keeping CHALLENGE_CONFIRMATION allows the buttons to remain if it was just a misclick by someone else.
+        return CHALLENGE_CONFIRMATION
     
     # User is authorized to respond
     responding_user_name = user_clicking_callback.username or user_clicking_callback.first_name
