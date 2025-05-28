@@ -1,0 +1,17 @@
+- [x] Initialize Python project for Telegram bot
+- [x] Create main bot file (`marbitz_battlebot.py`)
+- [x] Create `requirements.txt` with `python-telegram-bot`
+- [x] Create initial `README.md`
+- [x] Push initial project structure to GitHub repository: https://github.com/ikbenFranco/Marbitz-Battlebot
+- [x] Add "Deploy to Render" button and tutorial to `README.md`
+- [x] Implement `/challenge` command logic (initial conversation flow)
+- [x] Implement wagering system
+- [x] Enhance battle storylines with more variety and detail (previously basic)
+- [x] Implement winner determination
+- [x] Implement outcome announcement (including wager)
+- [x] Implement data storage for leaderboards (JSON file initially)
+- [x] Implement overall leaderboard
+- [x] Refine weekly leaderboard reset (was basic, now more robust)
+- [x] Prepare bot for easy deployment on Render (environment variables for token)
+- [x] Add a command to view a user's personal stats (`/my_stats`)
+- [ ] Test bot functionality (USER ACTION REQUIRED)

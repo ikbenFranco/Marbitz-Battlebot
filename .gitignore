@@ -1,0 +1,23 @@
+# Runtime data storage files
+leaderboard.json
+weekly_leaderboard.json
+last_weekly_reset.txt
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+.env.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,15 @@
+# Exported from Render on 2025-05-27T17:58:46Z
+services:
+- type: web
+  name: Marbitz-Battlebot
+  runtime: python
+  repo: https://github.com/ikbenFranco/Marbitz-Battlebot
+  plan: starter
+  envVars:
+  - key: 7891993773:AAFBG6ZB0hU0CubYIW0NFBYRli72QY1B3ys
+    sync: true
+  region: oregon
+  buildCommand: pip install -r requirements.txt
+  startCommand: python marbitz_battlebot.py
+  autoDeployTrigger: commit
+version: "1"
