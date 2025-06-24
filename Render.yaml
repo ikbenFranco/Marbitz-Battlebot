@@ -12,16 +12,22 @@ services:
   - key: PYTHON_VERSION
     value: "3.11.0"
     sync: false
+  - key: WEBHOOK_URL
+    value: https://marbitz-battlebot.onrender.com
+    sync: false
+  - key: PORT
+    value: "8080"
+    sync: false
   region: oregon
   buildCommand: pip install -r requirements.txt
-  startCommand: python main.py
+  startCommand: python webhook_main.py
   autoDeployTrigger: commit
   # Deployment settings to prevent conflicts
   scaling:
     minInstances: 1
     maxInstances: 1
   # Health check settings
-  healthCheckPath: /
+  healthCheckPath: /health
   # Graceful shutdown timeout
   shutdownTimeout: 30
 version: "1"

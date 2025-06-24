@@ -76,8 +76,8 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     )
     await update.message.reply_text(help_text, parse_mode='Markdown')
 
-async def challenge_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle /challenge command."""
+async def challenge_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /challenge command (simplified version without conversation handler)."""
     logger.info(f"Challenge command received from user: {update.effective_user.username if update.effective_user else 'Unknown'}")
     try:
         # Check if the command has arguments
@@ -86,7 +86,7 @@ async def challenge_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 "⚠️ Usage: /challenge @username\n\n"
                 "Example: /challenge @MarbleWarrior"
             )
-            return ConversationHandler.END
+            return
         
         # Validate challenger has a username
         challenger = update.effective_user.username
@@ -95,7 +95,7 @@ async def challenge_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 "⚠️ You need a username to participate in battles!\n\n"
                 "Please set a username in your Telegram profile settings and try again."
             )
-            return ConversationHandler.END
+            return
         
         # Validate and sanitize challenged username
         challenged_input = context.args[0].lstrip('@').strip()
@@ -106,12 +106,12 @@ async def challenge_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 "⚠️ Invalid username format.\n\n"
                 "Usage: /challenge @username"
             )
-            return ConversationHandler.END
+            return
         
         # Check if user is challenging themselves
         if challenged_input.lower() == challenger.lower():
             await update.message.reply_text("⚠️ You can't challenge yourself! 😅")
-            return ConversationHandler.END
+            return
         
         # Check if user already has an active challenge
         existing_challenge = find_user_challenge(challenger)
@@ -120,52 +120,40 @@ async def challenge_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 "⚠️ You already have an active challenge!\n\n"
                 "Please wait for your current challenge to complete or use /cancel_challenge to cancel it."
             )
-            return ConversationHandler.END
+            return
         
-        # Create a new challenge
+        # Create a new challenge with no wager (simplified)
         try:
-            challenge_id = create_challenge(challenger, challenged_input)
-            
-            # Store challenge data in user_data
-            context.user_data['challenge_id'] = challenge_id
-            context.user_data['challenger'] = challenger
-            context.user_data['challenged'] = challenged_input
-            context.user_data['challenger_id'] = update.effective_user.id
-            
+            challenge_id = create_challenge(challenger, challenged_input, 0)
             logger.info(f"Challenge created: {challenger} vs {challenged_input} (ID: {challenge_id})")
         except ValueError as e:
-            # Handle validation errors from create_challenge
             await update.message.reply_text(f"⚠️ Error creating challenge: {str(e)}")
-            return ConversationHandler.END
+            return
         except Exception as e:
-            # Handle unexpected errors
             logger.error(f"Unexpected error in challenge_command: {str(e)}")
             await update.message.reply_text(
                 "⚠️ An unexpected error occurred while creating the challenge. Please try again later."
             )
-            return ConversationHandler.END
+            return
+        
+        # Create accept/decline buttons
+        keyboard = [
+            [InlineKeyboardButton("Accept Battle! ⚔️", callback_data=f"accept_{challenge_id}")],
+            [InlineKeyboardButton("Decline 😔", callback_data=f"decline_{challenge_id}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            f"⚔️ @{challenger} challenges @{challenged_input} to a marble battle!\n\n"
+            f"@{challenged_input}, do you accept this challenge?",
+            reply_markup=reply_markup
+        )
+        
     except Exception as e:
-        # Catch-all for any other exceptions
         logger.error(f"Unhandled exception in challenge_command: {str(e)}")
         await update.message.reply_text(
             "⚠️ An error occurred while processing your command. Please try again later."
         )
-        return ConversationHandler.END
-    
-    # Ask about wagering
-    keyboard = [
-        [InlineKeyboardButton("Yes, let's wager!", callback_data=f"wager_yes_{challenge_id}")],
-        [InlineKeyboardButton("No wager, just battle!", callback_data=f"wager_no_{challenge_id}")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    await update.message.reply_text(
-        f"⚔️ @{challenger} wants to challenge @{challenged_input}!\n\n"
-        f"Do you want to wager marbles on this battle?",
-        reply_markup=reply_markup
-    )
-    
-    return WAGER_AMOUNT
 
 async def wager_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle wager decision callback."""
@@ -351,7 +339,7 @@ async def wager_amount_handler(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         return ConversationHandler.END
 
-async def challenge_response_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def challenge_response_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle challenge acceptance/decline."""
     try:
         # Validate callback query
