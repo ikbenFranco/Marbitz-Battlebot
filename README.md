@@ -79,9 +79,14 @@ pytest --cov=marbitz_battlebot
 # Run specific test file
 pytest tests/unit/test_storage.py
 
-# Or use the run_tests.py script
+# On Windows, use the batch file
+run_tests.bat
+
+# Or use the Python script (cross-platform)
 python run_tests.py
 ```
+
+For detailed information about testing, see [TESTING.md](TESTING.md).
 
 ## Getting Started (for users)
 

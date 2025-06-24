@@ -8,10 +8,10 @@ import os
 import logging
 from dotenv import load_dotenv
 
-from marbitz_battlebot.bot import main
+from marbitz_battlebot.bot import run_main
 
 # Load environment variables from .env file if it exists
 load_dotenv()
 
 if __name__ == '__main__':
-    main()
+    run_main()
