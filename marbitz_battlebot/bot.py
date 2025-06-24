@@ -152,7 +152,7 @@ class BotApplication:
                 ]
             },
             fallbacks=[CommandHandler('cancel', cancel_conversation)],
-            per_user=True
+            per_chat=True
         )
         
         # Add handlers

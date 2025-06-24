@@ -6,6 +6,7 @@ This module contains the command handlers for the Telegram bot.
 
 import logging
 import asyncio
+import random
 from typing import Dict, Any, Optional, Tuple
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -323,22 +324,29 @@ async def wager_amount_handler(update: Update, context: ContextTypes.DEFAULT_TYP
                 "⚠️ An error occurred while setting the wager amount. Please try again."
             )
             return WAGER_AMOUNT
-    
-    keyboard = [
-        [InlineKeyboardButton("Accept Battle! ⚔️", callback_data=f"accept_{challenge_id}")],
-        [InlineKeyboardButton("Decline 😔", callback_data=f"decline_{challenge_id}")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    
-    wager_text = f" with {wager_amount} marbles on the line" if wager_amount > 0 else ""
-    
-    await update.message.reply_text(
-        f"⚔️ @{challenger} challenges @{challenged} to a marble battle{wager_text}!\n\n"
-        f"@{challenged}, do you accept this challenge?",
-        reply_markup=reply_markup
-    )
-    
-    return CHALLENGE_CONFIRMATION
+        
+        keyboard = [
+            [InlineKeyboardButton("Accept Battle! ⚔️", callback_data=f"accept_{challenge_id}")],
+            [InlineKeyboardButton("Decline 😔", callback_data=f"decline_{challenge_id}")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        wager_text = f" with {wager_amount} marbles on the line" if wager_amount > 0 else ""
+        
+        await update.message.reply_text(
+            f"⚔️ @{challenger} challenges @{challenged} to a marble battle{wager_text}!\n\n"
+            f"@{challenged}, do you accept this challenge?",
+            reply_markup=reply_markup
+        )
+        
+        return CHALLENGE_CONFIRMATION
+    except Exception as e:
+        # Catch-all for any other exceptions
+        logger.error(f"Unhandled exception in wager_amount_handler: {str(e)}")
+        await update.message.reply_text(
+            "⚠️ An error occurred while processing your wager. Please try again later."
+        )
+        return ConversationHandler.END
 
 async def challenge_response_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle challenge acceptance/decline."""
