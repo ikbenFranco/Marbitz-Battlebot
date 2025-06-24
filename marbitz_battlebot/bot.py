@@ -23,7 +23,7 @@ from marbitz_battlebot.handlers import (
     wager_amount_handler, challenge_response_callback, cancel_challenge_command,
     leaderboard_command, weekly_command, stats_command, my_stats_command,
     status_command, cancel_challenge_callback, cancel_conversation, 
-    WAGER_AMOUNT, CHALLENGE_CONFIRMATION
+    debug_callback_handler, WAGER_AMOUNT, CHALLENGE_CONFIRMATION
 )
 from marbitz_battlebot.battle import initialize_battle_system, cleanup_expired_challenges
 
@@ -142,26 +142,13 @@ class BotApplication:
         # Create application
         self.application = Application.builder().token(self.token).build()
         
-        # Challenge conversation handler
-        challenge_conv_handler = ConversationHandler(
-            entry_points=[CommandHandler('challenge', challenge_command)],
-            states={
-                WAGER_AMOUNT: [
-                    CallbackQueryHandler(wager_callback, pattern=r'^wager_(yes|no)_'),
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, wager_amount_handler)
-                ],
-                CHALLENGE_CONFIRMATION: [
-                    CallbackQueryHandler(challenge_response_callback, pattern=r'^(accept|decline)_')
-                ]
-            },
-            fallbacks=[CommandHandler('cancel', cancel_conversation)],
-            per_chat=True
-        )
+        # Simplified approach - no conversation handler for now
+        # Just use regular command and callback handlers
         
         # Add handlers
         self.application.add_handler(CommandHandler('start', start_command))
         self.application.add_handler(CommandHandler('help', help_command))
-        self.application.add_handler(challenge_conv_handler)
+        self.application.add_handler(CommandHandler('challenge', challenge_command))
         self.application.add_handler(CommandHandler('cancel_challenge', cancel_challenge_command))
         self.application.add_handler(CommandHandler('leaderboard', leaderboard_command))
         self.application.add_handler(CommandHandler('weekly', weekly_command))
@@ -171,6 +158,13 @@ class BotApplication:
         
         # Add callback handlers for buttons outside of conversation
         self.application.add_handler(CallbackQueryHandler(cancel_challenge_callback, pattern=r'^cancel_'))
+        
+        # Add debug callback handler to catch all callbacks (lowest priority)
+        self.application.add_handler(CallbackQueryHandler(debug_callback_handler), group=10)
+        
+        # Add global callback handlers for challenge responses (higher priority)
+        self.application.add_handler(CallbackQueryHandler(challenge_response_callback, pattern=r'^(accept|decline)_'), group=0)
+        self.application.add_handler(CallbackQueryHandler(wager_callback, pattern=r'^wager_(yes|no)_'), group=0)
         
         # Add error handler
         self.application.add_error_handler(self._error_handler)

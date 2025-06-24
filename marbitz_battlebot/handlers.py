@@ -31,6 +31,8 @@ WAGER_AMOUNT, CHALLENGE_CONFIRMATION = range(2)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /start command."""
+    logger.info(f"Start command received from user: {update.effective_user.username if update.effective_user else 'Unknown'}")
+    
     welcome_text = (
         "🏛️ **Welcome to Marbitz Battlebot!** ⚔️\n\n"
         "Ready to battle for marble supremacy? Here's how to play:\n\n"
@@ -76,6 +78,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def challenge_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle /challenge command."""
+    logger.info(f"Challenge command received from user: {update.effective_user.username if update.effective_user else 'Unknown'}")
     try:
         # Check if the command has arguments
         if not context.args or not context.args[0]:
@@ -359,8 +362,10 @@ async def challenge_response_callback(update: Update, context: ContextTypes.DEFA
             
         await query.answer()
 
-        # Log the callback data
+        # Log the callback data with more details
         logger.info(f"Challenge_response_callback: Received callback_query with data: '{query.data}'")
+        logger.info(f"Challenge_response_callback: User: {query.from_user.username if query.from_user else 'Unknown'} (ID: {query.from_user.id if query.from_user else 'Unknown'})")
+        logger.info(f"Challenge_response_callback: Chat: {query.message.chat.id if query.message else 'Unknown'}")
 
         # Parse callback data
         try:
@@ -1165,6 +1170,13 @@ async def cancel_conversation(update: Update, context: ContextTypes.DEFAULT_TYPE
         except:
             pass  # Ignore errors in the error handler
         return ConversationHandler.END
+
+async def debug_callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Debug handler to catch all callback queries."""
+    query = update.callback_query
+    if query:
+        logger.info(f"DEBUG: Callback query received - Data: '{query.data}', User: {query.from_user.username if query.from_user else 'Unknown'}")
+        # Don't answer the query here, let other handlers process it
 
 async def cancel_challenge_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle cancel challenge callback from status command."""
