@@ -1,4 +1,4 @@
-# Exported from Render on 2025-05-27T17:58:46Z
+# Render deployment configuration
 services:
 - type: web
   name: Marbitz-Battlebot
@@ -6,10 +6,14 @@ services:
   repo: https://github.com/ikbenFranco/Marbitz-Battlebot
   plan: starter
   envVars:
-  - key: 7891993773:AAFBG6ZB0hU0CubYIW0NFBYRli72QY1B3ys
-    sync: true
+  - key: BOT_TOKEN
+    value: null  # Will be set in Render dashboard
+    sync: false
+  - key: PYTHON_VERSION
+    value: "3.10.4"
+    sync: false
   region: oregon
   buildCommand: pip install -r requirements.txt
-  startCommand: python marbitz_battlebot.py
+  startCommand: python main.py
   autoDeployTrigger: commit
 version: "1"

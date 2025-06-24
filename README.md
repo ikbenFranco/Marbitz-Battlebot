@@ -9,6 +9,79 @@ A Telegram bot for fun marble battles in your group chat!
 *   Wager on battles
 *   Exciting, randomly generated battle storylines
 *   Overall and Weekly Leaderboards
+*   Thread-safe state management
+*   Automatic challenge expiration
+
+## State Management
+
+The bot uses a robust state management system with the following features:
+
+* **Thread-safe operations**: All state modifications are protected by locks to prevent race conditions
+* **Singleton pattern**: Ensures only one instance of the state manager exists
+* **Persistent storage**: State is automatically saved to disk to survive bot restarts
+* **Automatic cleanup**: Expired challenges are automatically removed to prevent memory leaks
+* **Error handling**: Comprehensive error handling to ensure the bot remains stable
+
+## Security
+
+The bot implements several security best practices:
+
+* **Environment Variables**: Sensitive information like API tokens are stored in environment variables, not in code
+* **Token Protection**: Bot tokens are never committed to version control
+* **Secure Configuration**: The Render.yaml file uses null values for sensitive data, which must be set in the Render dashboard
+* **Input Validation**: User inputs are validated to prevent injection attacks
+* **Error Handling**: Errors are logged without exposing sensitive information
+* **Access Control**: Challenge responses are verified to ensure only the challenged user can respond
+
+## Project Structure
+
+The project is organized into the following modules:
+
+* `main.py` - Entry point for the application
+* `run_tests.py` - Script to run tests with coverage reporting
+* `pytest.ini` - Pytest configuration
+* `marbitz_battlebot/` - Main package
+  * `__init__.py` - Package initialization
+  * `bot.py` - Bot initialization and main application logic
+  * `handlers.py` - Command handlers for Telegram commands
+  * `battle.py` - Battle mechanics
+  * `state.py` - State management with thread-safe challenge tracking
+  * `leaderboard.py` - Leaderboard functionality and user stats
+  * `storage.py` - Data persistence functions
+* `tests/` - Test suite
+  * `conftest.py` - Test fixtures and configuration
+  * `unit/` - Unit tests
+    * `test_storage.py` - Tests for storage module
+    * `test_state.py` - Tests for state management
+    * `test_leaderboard.py` - Tests for leaderboard functionality
+    * `test_battle.py` - Tests for battle mechanics
+  * `integration/` - Integration tests
+    * `test_handlers.py` - Tests for command handlers
+
+## Testing
+
+The project includes a comprehensive test suite:
+
+* **Unit Tests**: Tests for individual modules and functions
+* **Integration Tests**: Tests for interactions between components
+* **Test Fixtures**: Reusable test components and mock objects
+* **Coverage Reporting**: Test coverage analysis to identify untested code
+
+To run the tests:
+
+```bash
+# Run all tests
+pytest
+
+# Run tests with coverage report
+pytest --cov=marbitz_battlebot
+
+# Run specific test file
+pytest tests/unit/test_storage.py
+
+# Or use the run_tests.py script
+python run_tests.py
+```
 
 ## Getting Started (for users)
 
@@ -44,13 +117,28 @@ A Telegram bot for fun marble battles in your group chat!
         ```
     *   Open the `.env` file and replace `YOUR_TELEGRAM_BOT_TOKEN_HERE` with your actual Telegram Bot Token.
 
-    The `marbitz_battlebot.py` script will automatically load this token if the `.env` file is present and the `python-dotenv` library is installed (though we are using `os.getenv` directly which doesn't strictly require `python-dotenv` for basic use, it's good practice if you expand on `.env` usage).
+    The `main.py` script will automatically load this token from the `.env` file using the `python-dotenv` library.
 
     **Important for Render Deployment:** When deploying to Render (see below), you will **NOT** use a `.env` file. Instead, you will set the `BOT_TOKEN` directly in Render's environment variable settings in their dashboard.
 
 5.  **Run the bot:**
     ```bash
-    python marbitz_battlebot.py
+    python main.py
+    ```
+
+6.  **Run tests:**
+    ```bash
+    # Run all tests
+    pytest
+    
+    # Run tests with coverage report
+    pytest --cov=marbitz_battlebot
+    
+    # Run specific test file
+    pytest tests/unit/test_storage.py
+    
+    # Or use the run_tests.py script
+    python run_tests.py
     ```
 ## Deploying to Render
 
@@ -68,7 +156,7 @@ You can easily deploy your own instance of Marbitz Battlebot using Render.
     *   **Root Directory:** Leave blank (it's the root of your repo).
     *   **Runtime:** `Python 3`
     *   **Build Command:** `pip install -r requirements.txt`
-    *   **Start Command:** `python marbitz_battlebot.py`
+    *   **Start Command:** `python main.py`
     *   **Instance Type:** `Free` is likely sufficient to start, but you can choose a paid tier for better performance/uptime.
 4.  **Add Environment Variable (Crucial for Render):**
     *   Scroll down to the "Environment" section.
@@ -77,6 +165,8 @@ You can easily deploy your own instance of Marbitz Battlebot using Render.
     *   **Value:** Paste your Telegram Bot Token here (the one you get from BotFather).
     *   **Make sure the Key is exactly `BOT_TOKEN` and the Value is your correct Telegram API token.** This is the most common point of failure if the bot doesn't start correctly on Render and gives a token-related error.
     *   You can also add `PYTHON_VERSION` and set it to your desired Python 3 version (e.g., `3.10.4` or whatever Render supports and you prefer).
+    
+    **Security Note:** Never commit your bot token to version control. Always use environment variables or a `.env` file (which is gitignored) for local development. If you accidentally expose your token, regenerate it immediately using BotFather's `/revoke` command.
 5.  **Create Web Service:** Click the "Create Web Service" button. Render will now build and deploy your bot.
 6.  **Bot Setup (Telegram):**
     *   If you haven't already, talk to `@BotFather` on Telegram.
