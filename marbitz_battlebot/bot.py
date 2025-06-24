@@ -7,6 +7,8 @@ This module initializes and runs the Telegram bot.
 import os
 import logging
 import asyncio
+import signal
+import sys
 from typing import Dict, Any, Optional
 
 from telegram import Update
@@ -14,6 +16,7 @@ from telegram.ext import (
     Application, CommandHandler, MessageHandler, filters, 
     ContextTypes, ConversationHandler, CallbackQueryHandler
 )
+from telegram.error import Conflict, NetworkError, TimedOut
 
 from marbitz_battlebot.handlers import (
     start_command, help_command, challenge_command, wager_callback,
@@ -168,6 +171,23 @@ class BotApplication:
         
         # Add callback handlers for buttons outside of conversation
         self.application.add_handler(CallbackQueryHandler(cancel_challenge_callback, pattern=r'^cancel_'))
+        
+        # Add error handler
+        self.application.add_error_handler(self._error_handler)
+    
+    async def _error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle errors in the bot."""
+        logger.error(f"Exception while handling an update: {context.error}")
+        
+        # Handle specific error types
+        if isinstance(context.error, Conflict):
+            logger.warning("Conflict error detected - another bot instance may be running")
+        elif isinstance(context.error, NetworkError):
+            logger.warning(f"Network error: {context.error}")
+        elif isinstance(context.error, TimedOut):
+            logger.warning(f"Request timed out: {context.error}")
+        else:
+            logger.error(f"Unhandled error: {context.error}")
     
     async def start(self) -> None:
         """Start the bot application."""
@@ -187,13 +207,46 @@ class BotApplication:
         
         # Start the bot
         logger.info("Bot is starting up and will begin polling...")
-        await self.application.initialize()
-        await self.application.start()
-        await self.application.updater.start_polling(allowed_updates=Update.ALL_TYPES)
-        
-        # Run the bot until Ctrl+C is pressed
-        await self.application.updater.stop()
-        await self.application.stop()
+        try:
+            await self.application.initialize()
+            await self.application.start()
+            await self.application.updater.start_polling(
+                allowed_updates=Update.ALL_TYPES,
+                drop_pending_updates=True  # Drop pending updates to avoid conflicts
+            )
+            
+            # Keep the bot running
+            logger.info("Bot is now running. Press Ctrl+C to stop.")
+            await self.application.updater.idle()
+            
+        except Exception as e:
+            logger.error(f"Error during bot operation: {str(e)}")
+            raise
+        finally:
+            # Graceful shutdown
+            logger.info("Shutting down bot...")
+            try:
+                if self.application.updater.running:
+                    await self.application.updater.stop()
+                if self.application.running:
+                    await self.application.stop()
+                await self.application.shutdown()
+            except Exception as e:
+                logger.error(f"Error during shutdown: {str(e)}")
+    
+    async def stop(self) -> None:
+        """Stop the bot application gracefully."""
+        if self.application:
+            logger.info("Stopping bot application...")
+            try:
+                if self.application.updater.running:
+                    await self.application.updater.stop()
+                if self.application.running:
+                    await self.application.stop()
+                await self.application.shutdown()
+                logger.info("Bot stopped successfully.")
+            except Exception as e:
+                logger.error(f"Error stopping bot: {str(e)}")
 
 async def main() -> None:
     """Start the bot."""
@@ -209,7 +262,30 @@ async def main() -> None:
     # Create and start the bot application
     bot = BotApplication(bot_token)
     bot.setup()
-    await bot.start()
+    
+    # Set up signal handlers for graceful shutdown
+    def signal_handler(signum, frame):
+        logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+        asyncio.create_task(bot.stop())
+    
+    # Register signal handlers
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+    
+    try:
+        await bot.start()
+    except Conflict as e:
+        logger.error(f"Bot conflict error: {str(e)}")
+        logger.info("This usually means another instance is running. Waiting 30 seconds and retrying...")
+        await asyncio.sleep(30)
+        try:
+            await bot.start()
+        except Exception as retry_e:
+            logger.critical(f"Failed to start bot after retry: {str(retry_e)}")
+            raise
+    except Exception as e:
+        logger.critical(f"Failed to start bot: {str(e)}")
+        raise
 
 def run_main():
     """Run the main function with asyncio."""
