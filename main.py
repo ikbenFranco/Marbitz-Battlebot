@@ -25,7 +25,7 @@ from marbitz_battlebot.handlers import (
     start_command, help_command, challenge_command, 
     challenge_response_callback, cancel_challenge_command,
     leaderboard_command, weekly_command, stats_command, my_stats_command,
-    status_command, cancel_challenge_callback
+    status_command, cancel_challenge_callback, debug_command
 )
 from marbitz_battlebot.battle import initialize_battle_system
 
@@ -56,6 +56,7 @@ class WebhookBot:
         self.application.add_handler(CommandHandler('stats', stats_command))
         self.application.add_handler(CommandHandler('my_stats', my_stats_command))
         self.application.add_handler(CommandHandler('status', status_command))
+        self.application.add_handler(CommandHandler('debug', debug_command))
         
         # Add callback handlers
         self.application.add_handler(CallbackQueryHandler(challenge_response_callback, pattern=r'^(accept|decline)_'))

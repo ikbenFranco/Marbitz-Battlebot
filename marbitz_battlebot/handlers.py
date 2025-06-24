@@ -109,11 +109,17 @@ async def challenge_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             )
             return
         
-        # Check if user is challenging themselves (allow for testing if DEBUG mode)
-        debug_mode = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
-        if challenged_input.lower() == challenger.lower() and not debug_mode:
-            await update.message.reply_text("⚠️ You can't challenge yourself! 😅")
-            return
+        # Check if user is challenging themselves (temporarily allow for testing)
+        debug_mode = os.getenv('DEBUG_MODE', 'true').lower() == 'true'  # Default to true for testing
+        logger.info(f"DEBUG: debug_mode={debug_mode}, challenger={challenger}, challenged_input={challenged_input}")
+        
+        if challenged_input.lower() == challenger.lower():
+            if debug_mode:
+                logger.info(f"DEBUG MODE: Allowing self-challenge from @{challenger}")
+                await update.message.reply_text("🐛 DEBUG MODE: Self-challenge allowed for testing!")
+            else:
+                await update.message.reply_text("⚠️ You can't challenge yourself! 😅")
+                return
         
         # Check if user already has an active challenge
         existing_challenge = find_user_challenge(challenger)
@@ -1009,6 +1015,23 @@ async def my_stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await update.message.reply_text(
             "⚠️ An unexpected error occurred. Please try again later."
         )
+
+async def debug_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show debug information."""
+    debug_mode = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
+    webhook_url = os.getenv('WEBHOOK_URL', 'Not set')
+    port = os.getenv('PORT', 'Not set')
+    
+    debug_info = (
+        f"🐛 **Debug Information:**\n\n"
+        f"• Debug Mode: `{debug_mode}`\n"
+        f"• Webhook URL: `{webhook_url}`\n"
+        f"• Port: `{port}`\n"
+        f"• Your Username: `@{update.effective_user.username if update.effective_user.username else 'No username'}`\n"
+        f"• User ID: `{update.effective_user.id if update.effective_user else 'Unknown'}`"
+    )
+    
+    await update.message.reply_text(debug_info, parse_mode='Markdown')
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /status command to check challenge status and expiry time."""
