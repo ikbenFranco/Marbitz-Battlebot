@@ -4,6 +4,7 @@ Handlers module for Marbitz Battlebot.
 This module contains the command handlers for the Telegram bot.
 """
 
+import os
 import logging
 import asyncio
 import random
@@ -108,8 +109,9 @@ async def challenge_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             )
             return
         
-        # Check if user is challenging themselves
-        if challenged_input.lower() == challenger.lower():
+        # Check if user is challenging themselves (allow for testing if DEBUG mode)
+        debug_mode = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
+        if challenged_input.lower() == challenger.lower() and not debug_mode:
             await update.message.reply_text("⚠️ You can't challenge yourself! 😅")
             return
         
@@ -428,9 +430,14 @@ async def challenge_response_callback(update: Update, context: ContextTypes.DEFA
             f"ID: {clicker_id}. Expected challenged username: @{challenged_user_stored_username}"
         )
 
-        # Verify user authorization
+        # Verify user authorization (allow bypass in debug mode)
+        debug_mode = os.getenv('DEBUG_MODE', 'false').lower() == 'true'
         can_respond = False
-        if clicker_actual_username:  # Only if the clicker HAS a Telegram username
+        
+        if debug_mode:
+            can_respond = True
+            logger.info(f"Challenge_response_callback: DEBUG MODE - Allowing response from @{clicker_actual_username}")
+        elif clicker_actual_username:  # Only if the clicker HAS a Telegram username
             # Normalize usernames for comparison (remove @ prefix and convert to lowercase)
             normalized_clicker = clicker_actual_username.lower().lstrip('@')
             normalized_challenged = challenged_user_stored_username.lower().lstrip('@')
