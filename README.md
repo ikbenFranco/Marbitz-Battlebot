@@ -1,16 +1,18 @@
 # Marbitz Battlebot
 
-A Telegram bot for fun marble battles in your group chat!
+A production-ready Telegram bot for fun marble battles in your group chat!
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/ikbenFranco/Marbitz-Battlebot)
+
 ## Features
 
-*   Challenge other users with `/challenge @username`
-*   Wager on battles
-*   Exciting, randomly generated battle storylines
-*   Overall and Weekly Leaderboards
-*   Thread-safe state management
-*   Automatic challenge expiration
+- 🎯 **Challenge System**: Challenge other users with `/challenge @username`
+- 💰 **Wagering**: Bet points on battle outcomes
+- 📖 **Dynamic Battles**: Exciting, randomly generated battle storylines
+- 🏆 **Leaderboards**: Overall and weekly rankings
+- 🔒 **Thread-Safe**: Robust state management with race condition protection
+- ⏰ **Auto-Cleanup**: Automatic challenge expiration and cleanup
+- 🚀 **Production Ready**: Optimized for deployment with proper logging and error handling
 
 ## State Management
 
@@ -35,164 +37,106 @@ The bot implements several security best practices:
 
 ## Project Structure
 
-The project is organized into the following modules:
+```
+marbitz-battlebot/
+├── main.py                    # Production entry point (webhook mode)
+├── requirements.txt           # All dependencies
+├── requirements-prod.txt      # Production-only dependencies
+├── Render.yaml               # Render deployment configuration
+├── marbitz_battlebot/        # Main package
+│   ├── handlers.py           # Telegram command handlers
+│   ├── battle.py             # Battle mechanics and logic
+│   ├── state.py              # Thread-safe state management
+│   ├── leaderboard.py        # Rankings and statistics
+│   └── storage.py            # Data persistence
+├── tests/                    # Test suite
+│   ├── unit/                 # Unit tests
+│   └── integration/          # Integration tests
+└── clear_webhook.py          # Utility for webhook debugging
+```
 
-* `main.py` - Entry point for the application
-* `run_tests.py` - Script to run tests with coverage reporting
-* `pytest.ini` - Pytest configuration
-* `marbitz_battlebot/` - Main package
-  * `__init__.py` - Package initialization
-  * `bot.py` - Bot initialization and main application logic
-  * `handlers.py` - Command handlers for Telegram commands
-  * `battle.py` - Battle mechanics
-  * `state.py` - State management with thread-safe challenge tracking
-  * `leaderboard.py` - Leaderboard functionality and user stats
-  * `storage.py` - Data persistence functions
-* `tests/` - Test suite
-  * `conftest.py` - Test fixtures and configuration
-  * `unit/` - Unit tests
-    * `test_storage.py` - Tests for storage module
-    * `test_state.py` - Tests for state management
-    * `test_leaderboard.py` - Tests for leaderboard functionality
-    * `test_battle.py` - Tests for battle mechanics
-  * `integration/` - Integration tests
-    * `test_handlers.py` - Tests for command handlers
+## Quick Start
+
+### For Users
+1. Add `@MarbitzBattleBot` to your Telegram group
+2. Use `/start` to see the welcome message
+3. Use `/help` to see available commands
+4. Challenge someone with `/challenge @username`!
+
+### For Developers
+
+#### Local Development
+```bash
+# Clone and setup
+git clone https://github.com/ikbenFranco/Marbitz-Battlebot.git
+cd Marbitz-Battlebot
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Configure environment
+cp .env.example .env
+# Edit .env and add your BOT_TOKEN
+
+# Run the bot
+python main.py
+```
+
+#### Production Deployment (Render)
+1. Fork this repository
+2. Create a new Web Service on [Render](https://render.com)
+3. Connect your forked repository
+4. Set environment variables:
+   - `BOT_TOKEN`: Your Telegram bot token from @BotFather
+5. Deploy with:
+   - **Build Command**: `pip install -r requirements-prod.txt`
+   - **Start Command**: `python main.py`
+
+## Commands
+
+- `/start` - Welcome message and bot introduction
+- `/help` - Show available commands
+- `/challenge @username` - Challenge another user to battle
+- `/cancel_challenge` - Cancel your pending challenge
+- `/leaderboard` - Show overall rankings
+- `/weekly` - Show weekly rankings
+- `/stats` - Show global statistics
+- `/my_stats` - Show your personal statistics
+- `/status` - Show bot status and active challenges
 
 ## Testing
 
-The project includes a comprehensive test suite:
-
-* **Unit Tests**: Tests for individual modules and functions
-* **Integration Tests**: Tests for interactions between components
-* **Test Fixtures**: Reusable test components and mock objects
-* **Coverage Reporting**: Test coverage analysis to identify untested code
-
-To run the tests:
+Run the comprehensive test suite:
 
 ```bash
-# Run all tests
-pytest
-
-# Run tests with coverage report
+# Run all tests with coverage
 pytest --cov=marbitz_battlebot
 
-# Run specific test file
-pytest tests/unit/test_storage.py
+# Run specific test categories
+pytest tests/unit/          # Unit tests only
+pytest tests/integration/   # Integration tests only
 
-# On Windows, use the batch file
+# Windows batch file
 run_tests.bat
-
-# Or use the Python script (cross-platform)
-python run_tests.py
 ```
 
-For detailed information about testing, see [TESTING.md](TESTING.md).
+For detailed testing information, see [TESTING.md](TESTING.md).
 
-## Getting Started (for users)
+## Bot Setup (Telegram)
 
-1.  Add `@MarbitzBattleBot` to your Telegram group.
-2.  Use `/start` to see a welcome message.
-3.  Use `/help` to see available commands.
-4.  Challenge someone using `/challenge @username`!
+1. Talk to [@BotFather](https://t.me/BotFather) on Telegram
+2. Create a new bot: `/newbot`
+3. Choose a name and username for your bot
+4. Copy the API token provided
+5. **For group usage**: Disable group privacy:
+   - Use `/mybots` with @BotFather
+   - Select your bot → Bot Settings → Group Privacy → Turn off
 
-## Running the Bot (for developers)
+## Environment Variables
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/ikbenFranco/Marbitz-Battlebot.git
-    cd Marbitz-Battlebot
-    ```
-
-2.  **Create a virtual environment (recommended):**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
-    ```
-
-3.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **Set your Bot Token (for Local Development):**
-    The bot is configured to load the `BOT_TOKEN` from an environment variable. For local development:
-    *   Copy the `.env.example` file to a new file named `.env` (this file is ignored by Git).
-        ```bash
-        cp .env.example .env
-        ```
-    *   Open the `.env` file and replace `YOUR_TELEGRAM_BOT_TOKEN_HERE` with your actual Telegram Bot Token.
-
-    The `main.py` script will automatically load this token from the `.env` file using the `python-dotenv` library.
-
-    **Important for Render Deployment:** When deploying to Render (see below), you will **NOT** use a `.env` file. Instead, you will set the `BOT_TOKEN` directly in Render's environment variable settings in their dashboard.
-
-5.  **Run the bot:**
-    ```bash
-    python main.py
-    ```
-
-6.  **Run tests:**
-    ```bash
-    # Run all tests
-    pytest
-    
-    # Run tests with coverage report
-    pytest --cov=marbitz_battlebot
-    
-    # Run specific test file
-    pytest tests/unit/test_storage.py
-    
-    # Or use the run_tests.py script
-    python run_tests.py
-    ```
-## Deploying to Render
-
-You can easily deploy your own instance of Marbitz Battlebot using Render.
-
-1.  **Fork this Repository:** Click the "Fork" button at the top right of this page to create your own copy of this repository.
-2.  **Sign up/Log in to Render:** Go to [render.com](https://render.com) and create an account or log in.
-3.  **Create a New Web Service:**
-    *   Click on "New +" and then "Web Service".
-    *   Connect your GitHub account if you haven't already.
-    *   Select your forked `Marbitz-Battlebot` repository.
-    *   Give your service a unique name (e.g., `my-marbitz-bot`).
-    *   **Region:** Choose a region closest to you or your users.
-    *   **Branch:** `main` (or your default branch).
-    *   **Root Directory:** Leave blank (it's the root of your repo).
-    *   **Runtime:** `Python 3`
-    *   **Build Command:** `pip install -r requirements.txt`
-    *   **Start Command:** `python main.py`
-    *   **Instance Type:** `Free` is likely sufficient to start, but you can choose a paid tier for better performance/uptime.
-4.  **Add Environment Variable (Crucial for Render):**
-    *   Scroll down to the "Environment" section.
-    *   Click "Add Environment Variable".
-    *   **Key:** `BOT_TOKEN`
-    *   **Value:** Paste your Telegram Bot Token here (the one you get from BotFather).
-    *   **Make sure the Key is exactly `BOT_TOKEN` and the Value is your correct Telegram API token.** This is the most common point of failure if the bot doesn't start correctly on Render and gives a token-related error.
-    *   You can also add `PYTHON_VERSION` and set it to your desired Python 3 version (e.g., `3.10.4` or whatever Render supports and you prefer).
-    
-    **Security Note:** Never commit your bot token to version control. Always use environment variables or a `.env` file (which is gitignored) for local development. If you accidentally expose your token, regenerate it immediately using BotFather's `/revoke` command.
-5.  **Create Web Service:** Click the "Create Web Service" button. Render will now build and deploy your bot.
-6.  **Bot Setup (Telegram):**
-    *   If you haven't already, talk to `@BotFather` on Telegram.
-    *   Create a new bot: `/newbot`
-    *   Follow the instructions to choose a name and username for your bot.
-    *   BotFather will give you an **API token**. This is the `BOT_TOKEN` you used in the environment variables on Render.
-    *   **Important for Group Usage:**
-        *   Disable group privacy for your bot so it can read messages in groups. Talk to `@BotFather`, use `/mybots`, select your bot, go to "Bot Settings" -> "Group Privacy" -> "Turn off".
-        *   Ensure your bot has permission to send messages in the group.
-
-Once deployed, your bot should be running and responsive on Telegram!
-
-## How Other Telegram Groups Can Implement This Bot
-
-If you want to run a *public* instance of this bot that other groups can add (like the official `@MarbitzBattleBot` once it's deployed and running publicly by @ikbenFranco):
-
-1.  The group admin simply needs to search for the bot's username (e.g., `@MarbitzBattleBot`) on Telegram.
-2.  Add the bot to their group.
-3.  The bot should then respond to commands like `/start`, `/help`, and `/challenge`.
-
-If other users want to host *their own private instance* of the bot for their group:
-
-1.  They should follow the "Deploying to Render" (or "Running the Bot (for developers)") instructions above using their *own* Telegram Bot Token.
-2.  This will create a separate, independent bot that they control.
+- `BOT_TOKEN` - Your Telegram bot token (required)
+- `WEBHOOK_URL` - Webhook URL for production (auto-detected on Render)
+- `PORT` - Server port (default: 8080)
+- `LOG_TO_FILE` - Enable file logging (optional)

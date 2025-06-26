@@ -1,11 +1,14 @@
 """
-WEBHOOK-ONLY main entry point for Render deployment.
-This version NEVER uses polling and ONLY uses webhooks.
+Production-ready Marbitz Battlebot - Webhook Mode
+Telegram bot for battle challenges with leaderboards and statistics.
 """
 
 import os
 import logging
 import asyncio
+import signal
+import sys
+from typing import Optional
 
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler
@@ -13,12 +16,21 @@ from aiohttp import web
 from aiohttp.web_request import Request
 from aiohttp.web_response import Response
 
-# Set up logging
+# Configure production logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.INFO,
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('bot.log', mode='a') if os.getenv('LOG_TO_FILE') else logging.NullHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
+
+# Suppress noisy logs in production
+logging.getLogger('telegram').setLevel(logging.WARNING)
+logging.getLogger('httpx').setLevel(logging.WARNING)
+logging.getLogger('aiohttp').setLevel(logging.WARNING)
 
 # Import handlers
 from marbitz_battlebot.handlers import (
@@ -29,63 +41,70 @@ from marbitz_battlebot.handlers import (
 )
 from marbitz_battlebot.battle import initialize_battle_system
 
-async def clear_webhook_first(bot_token: str):
-    """Clear any existing webhook before setting up."""
+async def clear_webhook_first(bot_token: str) -> None:
+    """Clear any existing webhook before setting up new one."""
     try:
         bot = Bot(token=bot_token)
         
         # Get current webhook info
         webhook_info = await bot.get_webhook_info()
-        logger.info(f"🔍 Current webhook: {webhook_info.url}")
-        logger.info(f"🔍 Pending updates: {webhook_info.pending_update_count}")
-        
-        # Clear webhook
-        result = await bot.delete_webhook(drop_pending_updates=True)
-        logger.info(f"🧹 Webhook cleared: {result}")
+        if webhook_info.url:
+            logger.info(f"Clearing existing webhook: {webhook_info.url}")
+            await bot.delete_webhook(drop_pending_updates=True)
+            logger.info("Webhook cleared successfully")
+        else:
+            logger.info("No existing webhook to clear")
         
         await bot.close()
         
     except Exception as e:
-        logger.error(f"❌ Error clearing webhook: {str(e)}")
+        logger.error(f"Error clearing webhook: {str(e)}")
+        raise
 
-async def setup_webhook_bot(bot_token: str, webhook_url: str):
-    """Set up bot with webhook ONLY - NO POLLING."""
+async def setup_webhook_bot(bot_token: str, webhook_url: str) -> Application:
+    """Set up bot with webhook configuration."""
     
     # Clear any existing webhook first
     await clear_webhook_first(bot_token)
     
     # Initialize battle system
     initialize_battle_system()
+    logger.info("Battle system initialized")
     
-    # Create application WITHOUT updater (no polling)
+    # Create application without updater (webhook mode)
     application = Application.builder().token(bot_token).updater(None).build()
     
-    # Add command handlers
-    application.add_handler(CommandHandler('start', start_command))
-    application.add_handler(CommandHandler('help', help_command))
-    application.add_handler(CommandHandler('challenge', challenge_command))
-    application.add_handler(CommandHandler('cancel_challenge', cancel_challenge_command))
-    application.add_handler(CommandHandler('leaderboard', leaderboard_command))
-    application.add_handler(CommandHandler('weekly', weekly_command))
-    application.add_handler(CommandHandler('stats', stats_command))
-    application.add_handler(CommandHandler('my_stats', my_stats_command))
-    application.add_handler(CommandHandler('status', status_command))
-    application.add_handler(CommandHandler('debug', debug_command))
+    # Register command handlers
+    handlers = [
+        CommandHandler('start', start_command),
+        CommandHandler('help', help_command),
+        CommandHandler('challenge', challenge_command),
+        CommandHandler('cancel_challenge', cancel_challenge_command),
+        CommandHandler('leaderboard', leaderboard_command),
+        CommandHandler('weekly', weekly_command),
+        CommandHandler('stats', stats_command),
+        CommandHandler('my_stats', my_stats_command),
+        CommandHandler('status', status_command),
+        CommandHandler('debug', debug_command),
+        
+        # Callback handlers
+        CallbackQueryHandler(challenge_response_callback, pattern=r'^(accept|decline)_'),
+        CallbackQueryHandler(cancel_challenge_callback, pattern=r'^cancel_'),
+    ]
     
-    # Add callback handlers
-    application.add_handler(CallbackQueryHandler(challenge_response_callback, pattern=r'^(accept|decline)_'))
-    application.add_handler(CallbackQueryHandler(cancel_challenge_callback, pattern=r'^cancel_'))
+    for handler in handlers:
+        application.add_handler(handler)
     
-    # Add debug handler for unhandled callbacks
-    async def debug_callback_handler(update: Update, context):
+    # Add fallback handler for unhandled callbacks
+    async def fallback_callback_handler(update: Update, context):
         query = update.callback_query
         if query:
-            logger.info(f"🐛 DEBUG: Unhandled callback - Data: '{query.data}', User: {query.from_user.username if query.from_user else 'Unknown'}")
-            await query.answer("Button received!")
+            logger.warning(f"Unhandled callback: {query.data} from user {query.from_user.username if query.from_user else 'Unknown'}")
+            await query.answer("This button is no longer active.")
     
-    application.add_handler(CallbackQueryHandler(debug_callback_handler))
+    application.add_handler(CallbackQueryHandler(fallback_callback_handler))
     
-    # Initialize the application (but DON'T start updater)
+    # Initialize and start application
     await application.initialize()
     await application.start()
     
@@ -93,74 +112,102 @@ async def setup_webhook_bot(bot_token: str, webhook_url: str):
     webhook_endpoint = f"{webhook_url}/webhook"
     await application.bot.set_webhook(
         url=webhook_endpoint,
-        drop_pending_updates=True
+        drop_pending_updates=True,
+        max_connections=100,
+        allowed_updates=['message', 'callback_query']
     )
     
-    logger.info(f"✅ Webhook set to: {webhook_endpoint}")
+    logger.info(f"Webhook configured: {webhook_endpoint}")
     
     return application
 
 async def webhook_handler(request: Request, application: Application) -> Response:
-    """Handle incoming webhook requests."""
+    """Handle incoming webhook requests from Telegram."""
     try:
-        # Get the update from the request
+        # Parse update data
         update_data = await request.json()
-        logger.info(f"📨 Received webhook update: {update_data.get('update_id', 'unknown')}")
+        update_id = update_data.get('update_id', 'unknown')
         
+        # Create Update object
         update = Update.de_json(update_data, application.bot)
         
         if update:
             # Process the update
             await application.process_update(update)
-            logger.info(f"✅ Processed update: {update.update_id}")
+            logger.debug(f"Processed update {update_id}")
+        else:
+            logger.warning(f"Failed to parse update {update_id}")
         
         return Response(text="OK")
+        
     except Exception as e:
-        logger.error(f"❌ Error processing webhook: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error processing webhook: {str(e)}")
         return Response(text="Error", status=500)
 
 async def health_check(request: Request) -> Response:
-    """Health check endpoint."""
+    """Health check endpoint for monitoring."""
     return web.json_response({
         'status': 'healthy',
-        'service': 'marbitz-battlebot-webhook-only',
-        'mode': 'webhook-only',
-        'polling': 'DISABLED'
+        'service': 'marbitz-battlebot',
+        'mode': 'webhook',
+        'version': '1.0.0'
     })
 
+async def get_webhook_url() -> str:
+    """Get webhook URL from environment variables."""
+    webhook_url = os.getenv('WEBHOOK_URL')
+    if webhook_url:
+        return webhook_url.rstrip('/')
+    
+    # Try Render service URL
+    render_url = os.getenv('RENDER_EXTERNAL_URL')
+    if render_url:
+        return render_url.rstrip('/')
+    
+    # Fallback for Render deployment
+    return "https://marbitz-battlebot.onrender.com"
+
+async def shutdown_handler(application: Optional[Application], runner: Optional[web.AppRunner], site: Optional[web.TCPSite]):
+    """Clean shutdown handler."""
+    logger.info("Shutting down gracefully...")
+    
+    if site:
+        await site.stop()
+    if runner:
+        await runner.cleanup()
+    if application:
+        await application.stop()
+        await application.shutdown()
+    
+    logger.info("Shutdown complete")
+
 async def main():
-    """Run the webhook-only bot."""
+    """Main entry point for the bot."""
+    # Validate environment
     bot_token = os.getenv('BOT_TOKEN')
     if not bot_token:
-        logger.critical("❌ BOT_TOKEN environment variable not found!")
-        return
+        logger.critical("BOT_TOKEN environment variable is required")
+        sys.exit(1)
     
-    # Get webhook URL from environment
-    webhook_url = os.getenv('WEBHOOK_URL')
-    if not webhook_url:
-        # Try to construct from Render service URL
-        render_service_url = os.getenv('RENDER_EXTERNAL_URL')
-        if render_service_url:
-            webhook_url = render_service_url.rstrip('/')
-        else:
-            # Fallback - construct from service name
-            webhook_url = "https://marbitz-battlebot.onrender.com"
-    
+    webhook_url = await get_webhook_url()
     port = int(os.getenv('PORT', 8080))
     
-    logger.info(f"🤖 Starting WEBHOOK-ONLY bot with URL: {webhook_url}")
-    logger.info(f"🚫 POLLING IS COMPLETELY DISABLED")
+    logger.info(f"Starting Marbitz Battlebot")
+    logger.info(f"Webhook URL: {webhook_url}")
+    logger.info(f"Port: {port}")
+    
+    application = None
+    runner = None
+    site = None
     
     try:
-        # Set up bot with webhook
+        # Set up bot
         application = await setup_webhook_bot(bot_token, webhook_url)
         
-        # Create web application
+        # Create web server
         app = web.Application()
         
-        # Add webhook handler with application closure
+        # Route handlers
         async def webhook_route(request):
             return await webhook_handler(request, application)
         
@@ -174,29 +221,31 @@ async def main():
         site = web.TCPSite(runner, '0.0.0.0', port)
         await site.start()
         
-        logger.info(f"🚀 Webhook-only server started on port {port}")
-        logger.info("✅ Bot is running and ready to receive webhook updates!")
-        logger.info("🚫 NO POLLING - WEBHOOK ONLY!")
+        logger.info(f"Bot server started on port {port}")
+        logger.info("Bot is ready to receive updates")
         
-        # Keep the server running
+        # Set up signal handlers for graceful shutdown
+        def signal_handler():
+            logger.info("Received shutdown signal")
+            raise KeyboardInterrupt()
+        
+        if hasattr(signal, 'SIGTERM'):
+            signal.signal(signal.SIGTERM, lambda s, f: signal_handler())
+        if hasattr(signal, 'SIGINT'):
+            signal.signal(signal.SIGINT, lambda s, f: signal_handler())
+        
+        # Keep server running
         try:
             while True:
                 await asyncio.sleep(1)
         except KeyboardInterrupt:
-            logger.info("🛑 Shutting down...")
-        finally:
-            logger.info("🧹 Cleaning up...")
-            await site.stop()
-            await runner.cleanup()
-            if application:
-                await application.stop()
-                await application.shutdown()
-                
+            pass
+            
     except Exception as e:
-        logger.critical(f"💥 Critical error: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.critical(f"Critical error: {str(e)}")
         raise
+    finally:
+        await shutdown_handler(application, runner, site)
 
 if __name__ == '__main__':
     try:
@@ -204,5 +253,5 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
     except Exception as e:
-        logger.critical(f"Critical error: {str(e)}")
-        raise
+        logger.critical(f"Fatal error: {str(e)}")
+        sys.exit(1)

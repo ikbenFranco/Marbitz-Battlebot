@@ -1,36 +1,24 @@
-# Render deployment configuration
+# Production deployment configuration for Render
 services:
 - type: web
-  name: Marbitz-Battlebot
+  name: marbitz-battlebot
   runtime: python
   repo: https://github.com/ikbenFranco/Marbitz-Battlebot
   plan: starter
   envVars:
   - key: BOT_TOKEN
-    value: null  # Will be set in Render dashboard
+    value: null  # Set this in Render dashboard
     sync: false
   - key: PYTHON_VERSION
-    value: "3.11.0"
-    sync: false
-  - key: WEBHOOK_URL
-    value: https://marbitz-battlebot.onrender.com
-    sync: false
-  - key: PORT
-    value: "8080"
-    sync: false
-  - key: DEBUG_MODE
-    value: "true"
+    value: "3.11"
     sync: false
   region: oregon
-  buildCommand: pip install -r requirements.txt
+  buildCommand: pip install -r requirements-prod.txt
   startCommand: python main.py
   autoDeployTrigger: commit
-  # Deployment settings to prevent conflicts
   scaling:
     minInstances: 1
     maxInstances: 1
-  # Health check settings
   healthCheckPath: /health
-  # Graceful shutdown timeout
   shutdownTimeout: 30
 version: "1"
