@@ -11,7 +11,7 @@ import sys
 from typing import Optional
 
 from telegram import Update, Bot
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ConversationHandler, MessageHandler, filters
 from aiohttp import web
 from aiohttp.web_request import Request
 from aiohttp.web_response import Response
@@ -37,7 +37,9 @@ from marbitz_battlebot.handlers import (
     start_command, help_command, challenge_command, 
     challenge_response_callback, cancel_challenge_command,
     leaderboard_command, weekly_command, stats_command, my_stats_command,
-    status_command, cancel_challenge_callback, debug_command
+    status_command, cancel_challenge_callback, debug_command,
+    wager_callback, wager_amount_handler, cancel_conversation,
+    WAGER_AMOUNT, CHALLENGE_CONFIRMATION
 )
 from marbitz_battlebot.battle import initialize_battle_system
 
@@ -74,11 +76,27 @@ async def setup_webhook_bot(bot_token: str, webhook_url: str) -> Application:
     # Create application without updater (webhook mode)
     application = Application.builder().token(bot_token).updater(None).build()
     
+    # Create challenge conversation handler
+    challenge_conversation = ConversationHandler(
+        entry_points=[CommandHandler('challenge', challenge_command)],
+        states={
+            WAGER_AMOUNT: [
+                CallbackQueryHandler(wager_callback, pattern=r'^wager_(yes|no)_'),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, wager_amount_handler),
+            ],
+        },
+        fallbacks=[
+            CommandHandler('cancel', cancel_conversation),
+            MessageHandler(filters.COMMAND, cancel_conversation),
+        ],
+        allow_reentry=True
+    )
+    
     # Register command handlers
     handlers = [
         CommandHandler('start', start_command),
         CommandHandler('help', help_command),
-        CommandHandler('challenge', challenge_command),
+        challenge_conversation,  # Use conversation handler instead of simple command
         CommandHandler('cancel_challenge', cancel_challenge_command),
         CommandHandler('leaderboard', leaderboard_command),
         CommandHandler('weekly', weekly_command),
